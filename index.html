@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>로컬 Qwen AI 문제 자동 스캐너</title>
+    <title>로컬 Qwen AI 문제 자동 스캐너 (고정밀 인식)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -76,7 +76,7 @@
                 </div>
                 <div>
                     <h1 class="font-bold text-base sm:text-lg tracking-tight text-slate-800 leading-none">로컬 Qwen 문제 스캐너</h1>
-                    <span class="text-[11px] text-emerald-600 font-semibold">API 없음 · 기기 내장 Qwen · 자동 인식</span>
+                    <span class="text-[11px] text-emerald-600 font-semibold">고정밀 문서 보정 · 로컬 Qwen · 자동 인식</span>
                 </div>
             </div>
             <div class="flex items-center gap-2">
@@ -161,7 +161,7 @@
                     </div>
 
                     <span class="absolute bottom-3 bg-black/70 text-white text-xs px-3 py-1 rounded-full backdrop-blur-sm">
-                        네모 상자 안쪽만 잘라서 자동 인식합니다
+                        네모 상자 안쪽만 잘라서 자동 흑백 보정 후 인식합니다
                     </span>
                 </div>
 
@@ -213,11 +213,17 @@
                     </button>
                 </div>
 
-                <!-- 인식된 문제 수정 영역 -->
+                <!-- 인식된 문제 수정 및 보정 이미지 확인 영역 -->
                 <div id="ocrEditorBox" class="hidden pt-2 border-t border-slate-100">
-                    <label for="problemTextInput" class="block text-xs font-semibold text-slate-600 mb-1">
-                        자동 인식된 문제 (오탈자 수정 후 [수정 내용으로 풀기] 가능)
-                    </label>
+                    <div class="flex items-center justify-between mb-1">
+                        <label for="problemTextInput" class="block text-xs font-semibold text-slate-600">
+                            자동 인식된 문제 (오탈자 수정 후 [수정 내용으로 풀기] 가능)
+                        </label>
+                        <button id="btnToggleProcessedPreview" type="button" class="text-[11px] text-emerald-600 hover:underline font-medium">
+                            흑백 보정본 보기
+                        </button>
+                    </div>
+                    <img id="processedDebugImg" alt="OCR 보정 이미지" class="hidden w-full max-h-48 object-contain border border-slate-200 rounded-lg mb-2 bg-white" />
                     <textarea id="problemTextInput" rows="3" class="w-full border border-slate-300 rounded-xl p-2.5 text-xs sm:text-sm focus:outline-none focus:border-emerald-500"></textarea>
                     <div class="flex justify-end mt-2">
                         <button id="btnSolveEdited" type="button" class="text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-lg transition">
@@ -238,7 +244,7 @@
                 <i data-lucide="bot" class="w-6 h-6 text-emerald-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></i>
             </div>
             <h3 id="loadingTitle" class="font-bold text-slate-800 text-lg mb-1">로컬 Qwen이 문제를 풀고 있어요</h3>
-            <p id="loadingSubtext" class="text-sm text-slate-500">네모 상자 안 문제를 인식하고 답변을 생성 중입니다...</p>
+            <p id="loadingSubtext" class="text-sm text-slate-500">네모 상자 안 문제를 선명하게 보정해 인식 중입니다...</p>
         </section>
 
         <!-- 결과 -->
@@ -258,7 +264,7 @@
 
     </main>
 
-    <!-- Qwen Web Worker (404 회피용 다중 후보 모델 자동 탐색) -->
+    <!-- Qwen Web Worker -->
     <script id="qwenWorkerCode" type="javascript/worker">
         import {
             AutoTokenizer,
@@ -269,7 +275,6 @@
         env.allowLocalModels = false;
         env.useBrowserCache = true;
 
-        // 404가 날 경우 순차적으로 시도할 경량 Qwen 후보 목록
         const QWEN_CANDIDATES = [
             { id: 'onnx-community/Qwen2.5-0.5B-Instruct', dtype: 'q4' },
             { id: 'onnx-community/Qwen2.5-1.5B-Instruct', dtype: 'q4' },
@@ -354,7 +359,7 @@
 
                     const subjectHint = {
                         auto: '전 과목(수학, 과학, 영어, 국어, 사회) 문제에 맞춰 설명하세요.',
-                        math: '수학 문제입니다. 풀이 과정과 수식을 단계별로 자세히 적어주세요.',
+                        math: '수학 문제입니다. 미지수를 설정하고 방정식이나 공식을 세워 단계별로 정확히 계산하세요.',
                         science: '과학 문제입니다. 개념과 원리를 중심으로 단계별로 설명하세요.',
                         english: '영어 문제입니다. 해석, 문법/어휘 포인트, 정답 이유를 설명하세요.',
                         korean: '국어·사회 문제입니다. 핵심 근거와 정답 이유를 설명하세요.'
@@ -363,7 +368,7 @@
                     const messages = [
                         {
                             role: 'system',
-                            content: `당신은 친절한 한국어 과외 선생님입니다. ${subjectHint} 반드시 다음 형식으로 답하세요:
+                            content: `당신은 친절한 한국어 과외 선생님입니다. ${subjectHint} 반드시 다음 형식으로 한국어로만 답하세요:
 ### 1. 문제 인식
 ### 2. 핵심 개념
 ### 3. 단계별 풀이 과정
@@ -383,7 +388,7 @@
                     const inputs = tokenizer(prompt, { return_tensor: true });
                     const outputIds = await model.generate({
                         ...inputs,
-                        max_new_tokens: 512,
+                        max_new_tokens: 600,
                         do_sample: false,
                         repetition_penalty: 1.1
                     });
@@ -438,6 +443,8 @@
         const ocrEditorBox = document.getElementById('ocrEditorBox');
         const problemTextInput = document.getElementById('problemTextInput');
         const btnSolveEdited = document.getElementById('btnSolveEdited');
+        const btnToggleProcessedPreview = document.getElementById('btnToggleProcessedPreview');
+        const processedDebugImg = document.getElementById('processedDebugImg');
 
         const loadingSection = document.getElementById('loadingSection');
         const loadingTitle = document.getElementById('loadingTitle');
@@ -459,7 +466,7 @@
         let isAutoScanEnabled = true;
         let autoScanInterval = null;
         let steadyTicks = 0;
-        const STEADY_REQUIRED = 4; // 약 1.4초 고정 시 자동 촬영
+        const STEADY_REQUIRED = 4;
         let prevMotionFrame = null;
         const motionCanvas = document.createElement('canvas');
         const motionCtx = motionCanvas.getContext('2d', { willReadFrequently: true });
@@ -481,6 +488,13 @@
                 setTimeout(() => el.remove(), 300);
             }, 3500);
         }
+
+        btnToggleProcessedPreview.addEventListener('click', () => {
+            processedDebugImg.classList.toggle('hidden');
+            btnToggleProcessedPreview.textContent = processedDebugImg.classList.contains('hidden')
+                ? '흑백 보정본 보기'
+                : '흑백 보정본 숨기기';
+        });
 
         // 과목 칩 선택
         document.querySelectorAll('.subject-chip').forEach((chip) => {
@@ -536,7 +550,6 @@
 
                 showToast('로컬 Qwen AI가 준비되었습니다!', 'success');
 
-                // 대기 중인 문제 텍스트가 있다면 바로 풀이 실행
                 const pendingText = problemTextInput.value.trim();
                 if (pendingText && !isBusySolving) {
                     askQwenToSolve(pendingText);
@@ -604,7 +617,6 @@
             }
         }
 
-        // 문제 자동 인식 루프 (네모 상자 고정 감지 -> 자동 촬영 -> 자동 인식 & Qwen 풀이)
         function startAutoScan() {
             stopAutoScan();
             if (!isAutoScanEnabled || !currentStream) return;
@@ -649,7 +661,7 @@
 
                         if (steadyTicks >= STEADY_REQUIRED) {
                             stopAutoScan();
-                            showToast('문제가 자동 인식되었습니다. 풀이를 시작합니다!', 'success');
+                            showToast('문제가 자동 인식되었습니다. 흑백 보정 후 풀이를 시작합니다!', 'success');
                             captureBoxAndProcess();
                         }
                     } else {
@@ -745,7 +757,106 @@
             return { sx, sy, sw, sh };
         }
 
-        // 네모 상자 영역 캡처 후 OCR -> Qwen 풀이
+        /**
+         * [핵심 개선] OCR 전용 문서 이미지 전처리 함수
+         * 1. 작은 글씨/숫자 인식을 위해 최소 가로 1400px로 업스케일링
+         * 2. 적분 이미지(Integral Image) 기반 적응형 임계값(Adaptive Thresholding)으로
+         *    어두운 종이 배경/그림자를 완전한 흰색(255)으로 날리고 글씨만 진한 검은색(0)으로 선명화
+         */
+        function preprocessImageForOCR(sourceDataUrl) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const targetMinWidth = 1400;
+                    const scale = img.width < targetMinWidth ? (targetMinWidth / img.width) : 1.2;
+                    const w = Math.min(2400, Math.round(img.width * scale));
+                    const h = Math.min(2400, Math.round(img.height * scale));
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+                    // 흰색 여백(Padding) 추가 - Tesseract가 가장자리 글씨를 잘라먹는 현상 방지
+                    const pad = 32;
+                    const fullW = w + pad * 2;
+                    const fullH = h + pad * 2;
+                    canvas.width = fullW;
+                    canvas.height = fullH;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, fullW, fullH);
+
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(img, pad, pad, w, h);
+
+                    const imgData = ctx.getImageData(0, 0, fullW, fullH);
+                    const data = imgData.data;
+                    const gray = new Uint8Array(fullW * fullH);
+
+                    // 1단계: 그레이스케일 변환
+                    for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+                        gray[p] = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+                    }
+
+                    // 2단계: 적분 이미지(Integral Image) 계산 (빠른 국소 평균 밝기 산출용)
+                    const integral = new Uint32Array((fullW + 1) * (fullH + 1));
+                    for (let y = 1; y <= fullH; y++) {
+                        let rowSum = 0;
+                        for (let x = 1; x <= fullW; x++) {
+                            rowSum += gray[(y - 1) * fullW + (x - 1)];
+                            integral[y * (fullW + 1) + x] = integral[(y - 1) * (fullW + 1) + x] + rowSum;
+                        }
+                    }
+
+                    // 3단계: 적응형 이진화 (주변 평균 밝기보다 일정 수준 어두우면 글씨(0), 아니면 배경(255))
+                    const radius = Math.max(15, Math.round(fullW / 45));
+                    const bias = 14; // 뒷면 비침 노이즈 제거 및 글씨 보존 균형값
+
+                    for (let y = 0; y < fullH; y++) {
+                        const y1 = Math.max(0, y - radius);
+                        const y2 = Math.min(fullH - 1, y + radius);
+                        for (let x = 0; x < fullW; x++) {
+                            const x1 = Math.max(0, x - radius);
+                            const x2 = Math.min(fullW - 1, x + radius);
+
+                            const count = (x2 - x1 + 1) * (y2 - y1 + 1);
+                            const sum = integral[(y2 + 1) * (fullW + 1) + (x2 + 1)]
+                                      - integral[y1 * (fullW + 1) + (x2 + 1)]
+                                      - integral[(y2 + 1) * (fullW + 1) + x1]
+                                      + integral[y1 * (fullW + 1) + x1];
+
+                            const localMean = sum / count;
+                            const idx = y * fullW + x;
+                            const val = gray[idx] < (localMean - bias) ? 0 : 255;
+
+                            const p = idx * 4;
+                            data[p] = val;
+                            data[p + 1] = val;
+                            data[p + 2] = val;
+                            data[p + 3] = 255;
+                        }
+                    }
+
+                    ctx.putImageData(imgData, 0, 0);
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                img.src = sourceDataUrl;
+            });
+        }
+
+        // OCR 오인식 흔한 노이즈 정리
+        function cleanOcrText(raw) {
+            if (!raw) return '';
+            return raw
+                .replace(/[|¦│]/g, '1')
+                .replace(/[“”]/g, '"')
+                .replace(/[‘’]/g, "'")
+                .replace(/\n{3,}/g, '\n\n')
+                .trim();
+        }
+
+        // 네모 상자 영역 캡처 후 보정 -> OCR -> Qwen 풀이
         function captureBoxAndProcess() {
             if (!currentStream) {
                 showToast('카메라가 활성화되지 않았습니다.', 'error');
@@ -754,29 +865,16 @@
             const crop = calculateGuideBoxCrop();
             if (!crop || crop.sw <= 0 || crop.sh <= 0) return;
 
-            const maxDim = 1280;
-            let w = crop.sw;
-            let h = crop.sh;
-            if (w > maxDim || h > maxDim) {
-                if (w > h) {
-                    h = Math.round((h * maxDim) / w);
-                    w = maxDim;
-                } else {
-                    w = Math.round((w * maxDim) / h);
-                    h = maxDim;
-                }
-            }
-
-            captureCanvas.width = w;
-            captureCanvas.height = h;
+            captureCanvas.width = crop.sw;
+            captureCanvas.height = crop.sh;
             const ctx = captureCanvas.getContext('2d');
             if (facingMode === 'user') {
-                ctx.translate(w, 0);
+                ctx.translate(crop.sw, 0);
                 ctx.scale(-1, 1);
             }
-            ctx.drawImage(videoPreview, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
+            ctx.drawImage(videoPreview, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, crop.sw, crop.sh);
 
-            const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.9);
+            const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.95);
             setPreview(dataUrl);
             extractTextAndSolveWithQwen(dataUrl);
         }
@@ -792,22 +890,10 @@
             reader.onload = (ev) => {
                 const img = new Image();
                 img.onload = () => {
-                    const maxDim = 1280;
-                    let w = img.width;
-                    let h = img.height;
-                    if (w > maxDim || h > maxDim) {
-                        if (w > h) {
-                            h = Math.round((h * maxDim) / w);
-                            w = maxDim;
-                        } else {
-                            w = Math.round((w * maxDim) / h);
-                            h = maxDim;
-                        }
-                    }
-                    captureCanvas.width = w;
-                    captureCanvas.height = h;
-                    captureCanvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.9);
+                    captureCanvas.width = img.width;
+                    captureCanvas.height = img.height;
+                    captureCanvas.getContext('2d').drawImage(img, 0, 0);
+                    const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.95);
                     setPreview(dataUrl);
                     extractTextAndSolveWithQwen(dataUrl);
                 };
@@ -845,6 +931,7 @@
             rawMarkdownSolution = '';
             problemTextInput.value = '';
             ocrEditorBox.classList.add('hidden');
+            processedDebugImg.classList.add('hidden');
 
             capturedImage.classList.add('hidden');
             capturedImage.src = '';
@@ -866,21 +953,27 @@
             previewControls.classList.add('hidden');
             loadingSection.classList.remove('hidden');
             resultSection.classList.add('hidden');
-            loadingTitle.textContent = '상자 안 문제를 자동 인식 중입니다...';
-            loadingSubtext.textContent = '문제를 읽은 뒤 로컬 Qwen 모델로 풀이합니다.';
+            loadingTitle.textContent = '문서 배경을 흰색으로 보정해 글자를 읽는 중...';
+            loadingSubtext.textContent = '적응형 이진화 처리 후 OCR 인식을 진행합니다.';
             loadingSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
             let extracted = '';
             try {
+                // 1. 어두운 종이 배경 제거 및 고대비 흑백 이미지 생성
+                const enhancedDataUrl = await preprocessImageForOCR(imageDataUrl);
+                processedDebugImg.src = enhancedDataUrl;
+
+                // 2. 보정된 고선명 이미지로 OCR 실행
                 if (typeof Tesseract !== 'undefined') {
-                    const res = await Tesseract.recognize(imageDataUrl, 'kor+eng', {
+                    const res = await Tesseract.recognize(enhancedDataUrl, 'kor+eng', {
+                        tessedit_pageseg_mode: '6', // 단일 텍스트 블록 모드로 문장 순서 보존
                         logger: (m) => {
                             if (m.status === 'recognizing text' && typeof m.progress === 'number') {
                                 loadingSubtext.textContent = `문제 텍스트 인식률: ${Math.round(m.progress * 100)}%`;
                             }
                         }
                     });
-                    extracted = (res?.data?.text || '').trim();
+                    extracted = cleanOcrText(res?.data?.text || '');
                 }
             } catch (err) {
                 console.warn('OCR 오류:', err);
@@ -893,7 +986,7 @@
                 isBusySolving = false;
                 loadingSection.classList.add('hidden');
                 previewControls.classList.remove('hidden');
-                showToast('글자가 선명하지 않아 인식이 비어 있습니다. 다시 비추거나 직접 입력해 주세요.', 'error');
+                showToast('글자를 읽지 못했습니다. [흑백 보정본 보기]를 눌러 초점을 확인해 주세요.', 'error');
                 return;
             }
 
@@ -901,7 +994,7 @@
                 isBusySolving = false;
                 loadingSection.classList.add('hidden');
                 previewControls.classList.remove('hidden');
-                showToast('Qwen 모델을 먼저 다운로드합니다. 완료되면 자동으로 풉니다!', 'info');
+                showToast('문제 인식 완료! Qwen 모델을 다운로드하면 자동으로 풀이가 시작됩니다.', 'info');
                 startQwenDownload();
                 return;
             }
