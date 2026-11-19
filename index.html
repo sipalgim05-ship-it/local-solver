@@ -14,6 +14,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <!-- Tesseract.js (기기 내장 OCR) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -67,9 +69,6 @@
             font-size: 0.875em;
             color: #be185d;
         }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -83,13 +82,13 @@
                 </div>
                 <div>
                     <h1 class="font-bold text-base sm:text-lg tracking-tight text-slate-800 leading-none">온디바이스 AI 스캐너</h1>
-                    <span class="text-[11px] text-emerald-600 font-semibold">API 키 불필요 · 무제한 로컬 추론</span>
+                    <span class="text-[11px] text-emerald-600 font-semibold">API 키 불필요 · 404 무중단 로컬 풀이</span>
                 </div>
             </div>
             <div class="flex items-center gap-2">
-                <span id="engineBadge" class="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
-                    <span id="engineDot" class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                    <span id="engineStatusText">AI 엔진 준비 중</span>
+                <span id="engineBadge" class="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
+                    <span id="engineDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span id="engineStatusText">로컬 엔진 대기</span>
                 </span>
                 <button id="btnResetTop" class="hidden text-sm font-medium text-slate-500 hover:text-emerald-600 flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition">
                     <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
@@ -105,47 +104,12 @@
     <!-- 메인 컨테이너 -->
     <main class="flex-1 max-w-3xl w-full mx-auto p-4 flex flex-col gap-5">
 
-        <!-- 0. 온디바이스 AI 모델 다운로드 및 초기화 패널 -->
-        <section id="modelSetupSection" class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-                <div>
-                    <h2 class="font-bold text-slate-800 text-base flex items-center gap-2">
-                        <i data-lucide="hard-drive-download" class="w-5 h-5 text-emerald-600"></i>
-                        <span>기기 내장 전 과목 AI 모델 (Qwen2.5-VL)</span>
-                    </h2>
-                    <p class="text-xs text-slate-500 mt-1 leading-relaxed">
-                        외부 서버나 API 키 없이 내 기기에서 직접 수식·도형·지문을 판독합니다. 최초 1회 다운로드 후 브라우저에 영구 저장됩니다.
-                    </p>
-                </div>
-                <button id="btnLoadModel" class="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm transition flex items-center justify-center gap-2">
-                    <i data-lucide="download" class="w-4 h-4"></i>
-                    <span>AI 엔진 시작하기</span>
-                </button>
-            </div>
-
-            <!-- 다운로드 진행률 표시 바 -->
-            <div id="modelProgressBox" class="hidden mt-3 pt-3 border-t border-slate-100">
-                <div class="flex justify-between text-xs font-medium text-slate-600 mb-1.5">
-                    <span id="modelProgressLabel">모델 파일 불러오는 중...</span>
-                    <span id="modelProgressPercent">0%</span>
-                </div>
-                <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div id="modelProgressBar" class="h-full bg-emerald-500 transition-all duration-300" style="width: 0%"></div>
-                </div>
-                <p id="modelProgressDetail" class="text-[11px] text-slate-400 mt-1.5 truncate"></p>
-            </div>
-        </section>
-
         <!-- 1. 카메라 및 이미지 캡처 영역 -->
         <section id="captureSection" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
             <div class="relative w-full aspect-[4/3] sm:aspect-[16/10] bg-slate-900 flex items-center justify-center overflow-hidden">
-                <!-- 실시간 비디오 스트림 -->
                 <video id="videoPreview" autoplay playsinline muted class="w-full h-full object-cover"></video>
-                
-                <!-- 캡처/업로드된 이미지 미리보기 -->
                 <img id="capturedImage" alt="촬영된 문제" class="hidden w-full h-full object-contain bg-slate-900" />
-                
-                <!-- 카메라 비활성화/오류 시 안내 화면 -->
+
                 <div id="cameraFallback" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-300 p-6 text-center bg-slate-800">
                     <i data-lucide="camera-off" class="w-12 h-12 mb-3 text-slate-400"></i>
                     <p class="font-medium text-base mb-1">카메라를 사용할 수 없습니다</p>
@@ -156,7 +120,7 @@
                     </button>
                 </div>
 
-                <!-- 카메라 뷰파인더 가이드라인 -->
+                <!-- 네모 상자 가이드라인 -->
                 <div id="viewfinderOverlay" class="absolute inset-0 pointer-events-none flex items-center justify-center">
                     <div id="scanGuideBox" class="w-4/5 h-3/5 border-2 border-white/70 rounded-2xl relative shadow-[0_0_0_9999px_rgba(15,23,42,0.45)]">
                         <div class="absolute -top-0.5 -left-0.5 w-6 h-6 border-t-4 border-l-4 border-emerald-400 rounded-tl-xl"></div>
@@ -170,7 +134,6 @@
                     </span>
                 </div>
 
-                <!-- 카메라 전환 버튼 -->
                 <button id="btnSwitchCamera" title="전면/후면 카메라 전환" class="absolute top-3 right-3 bg-black/50 hover:bg-black/70 text-white p-2.5 rounded-full backdrop-blur-md transition active:scale-95">
                     <i data-lucide="refresh-cw" class="w-5 h-5"></i>
                 </button>
@@ -178,7 +141,7 @@
 
             <!-- 하단 컨트롤 바 -->
             <div class="p-4 bg-white border-t border-slate-100 flex flex-col gap-3">
-                <!-- 과목 선택 칩 (전 과목 최적화 프롬프트 매칭) -->
+                <!-- 과목 선택 칩 -->
                 <div class="flex items-center gap-1.5 overflow-x-auto pb-1">
                     <span class="text-xs font-semibold text-slate-500 shrink-0 mr-1">과목:</span>
                     <button type="button" data-subject="auto" class="subject-chip active px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-600 text-white transition shrink-0">자동 판별 (전 과목)</button>
@@ -188,7 +151,7 @@
                     <button type="button" data-subject="korean" class="subject-chip px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition shrink-0">국어·사회</button>
                 </div>
 
-                <!-- 상태 A: 카메라 촬영 대기 모드 -->
+                <!-- 상태 A: 촬영 대기 -->
                 <div id="cameraControls" class="flex items-center justify-between gap-2 sm:gap-3">
                     <label for="fileInput" class="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium text-sm cursor-pointer transition">
                         <i data-lucide="image-plus" class="w-5 h-5 text-slate-500"></i>
@@ -202,7 +165,7 @@
                     </button>
                 </div>
 
-                <!-- 상태 B: 이미지 확인 및 재풀이 모드 -->
+                <!-- 상태 B: 미리보기 및 재풀이 -->
                 <div id="previewControls" class="hidden flex items-center justify-between gap-3">
                     <button id="btnRetake" class="flex-1 py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium text-sm flex items-center justify-center gap-2 transition">
                         <i data-lucide="arrow-left" class="w-4 h-4"></i>
@@ -210,31 +173,43 @@
                     </button>
                     <button id="btnSolve" class="flex-[2] bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-xl shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition active:scale-95">
                         <i data-lucide="sparkles" class="w-5 h-5"></i>
-                        <span>온디바이스 AI 다시 풀기</span>
+                        <span>로컬 AI 다시 풀기</span>
                     </button>
+                </div>
+
+                <!-- 인식된 문제 텍스트 수정 상자 (OCR 결과 보정용) -->
+                <div id="ocrEditorBox" class="hidden pt-2 border-t border-slate-100">
+                    <label for="recognizedTextInput" class="block text-xs font-semibold text-slate-600 mb-1">
+                        인식된 문제 텍스트 (글자나 기호가 틀렸다면 직접 수정 후 [수정 내용으로 다시 풀기]를 누르세요)
+                    </label>
+                    <textarea id="recognizedTextInput" rows="3" class="w-full border border-slate-300 rounded-xl p-2.5 text-xs sm:text-sm focus:outline-none focus:border-emerald-500"></textarea>
+                    <div class="flex justify-end mt-2">
+                        <button id="btnSolveEditedText" type="button" class="text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-lg transition">
+                            수정 내용으로 다시 풀기
+                        </button>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- 숨겨진 캔버스 -->
         <canvas id="captureCanvas" class="hidden"></canvas>
 
-        <!-- 2. 로딩 인디케이터 영역 -->
+        <!-- 2. 로딩 인디케이터 -->
         <section id="loadingSection" class="hidden bg-white rounded-2xl p-8 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
             <div class="relative w-14 h-14 mb-4">
                 <div class="absolute inset-0 border-4 border-emerald-100 rounded-full"></div>
                 <div class="absolute inset-0 border-4 border-emerald-600 rounded-full border-t-transparent animate-spin"></div>
                 <i data-lucide="cpu" class="w-6 h-6 text-emerald-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></i>
             </div>
-            <h3 class="font-bold text-slate-800 text-lg mb-1">기기 내장 AI가 문제를 직접 풀고 있어요</h3>
-            <p class="text-sm text-slate-500">외부 서버 통신 없이 기기 성능으로 분석 중입니다 (첫 추론은 10~30초 정도 걸릴 수 있습니다)...</p>
+            <h3 id="loadingTitle" class="font-bold text-slate-800 text-lg mb-1">기기 내장 AI가 문제를 분석하고 있어요</h3>
+            <p id="loadingSubtext" class="text-sm text-slate-500">상자 안 영역에서 글자와 수식을 읽는 중입니다...</p>
         </section>
 
-        <!-- 3. AI 풀이 결과 영역 -->
+        <!-- 3. 풀이 결과 영역 -->
         <section id="resultSection" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
             <div class="bg-gradient-to-r from-emerald-50 to-teal-50 px-5 py-3.5 border-b border-emerald-100 flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                    <span class="bg-emerald-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg">로컬 AI 해설</span>
+                    <span class="bg-emerald-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg">온디바이스 해설</span>
                     <h2 class="font-bold text-slate-800 text-base">풀이 과정 및 정답</h2>
                 </div>
                 <button id="btnCopyResult" class="text-xs font-medium text-slate-600 hover:text-emerald-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 transition active:scale-95">
@@ -242,191 +217,20 @@
                     <span>풀이 복사</span>
                 </button>
             </div>
-
             <div id="solutionContent" class="p-5 sm:p-6 markdown-body text-slate-700 text-sm sm:text-base"></div>
         </section>
 
     </main>
 
-    <!-- Web Worker 스크립트 (UI 멈춤 없이 백그라운드에서 온디바이스 AI 실행) -->
-    <script id="aiWorkerScript" type="javascript/worker">
-        import {
-            AutoProcessor,
-            AutoTokenizer,
-            Qwen2_5_VLForConditionalGeneration,
-            RawImage,
-            env
-        } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.1';
-
-        env.allowLocalModels = false;
-        env.useBrowserCache = true;
-
-        // 브라우저에서 안정적으로 구동되는 경량 멀티모달 비전-언어 모델
-        const MODEL_ID = 'onnx-community/Qwen2.5-VL-3B-Instruct';
-
-        let processor = null;
-        let tokenizer = null;
-        let model = null;
-        let isModelReady = false;
-
-        self.onmessage = async (e) => {
-            const { type, payload } = e.data;
-
-            if (type === 'LOAD_MODEL') {
-                if (isModelReady) {
-                    self.postMessage({ type: 'MODEL_READY' });
-                    return;
-                }
-
-                try {
-                    const hasWebGPU = !!navigator.gpu;
-                    const device = hasWebGPU ? 'webgpu' : 'wasm';
-
-                    self.postMessage({
-                        type: 'LOAD_PROGRESS',
-                        status: `가속 장치 감지: ${device.toUpperCase()} 모드로 초기화 중...`,
-                        progress: 5
-                    });
-
-                    const progressCallback = (info) => {
-                        if (info.status === 'progress' && info.total) {
-                            const pct = Math.round((info.loaded / info.total) * 100);
-                            self.postMessage({
-                                type: 'LOAD_PROGRESS',
-                                status: `모델 다운로드 중 (${info.file})`,
-                                progress: pct
-                            });
-                        }
-                    };
-
-                    tokenizer = await AutoTokenizer.from_pretrained(MODEL_ID, {
-                        progress_callback: progressCallback
-                    });
-
-                    processor = await AutoProcessor.from_pretrained(MODEL_ID, {
-                        progress_callback: progressCallback
-                    });
-
-                    model = await Qwen2_5_VLForConditionalGeneration.from_pretrained(MODEL_ID, {
-                        dtype: {
-                            embed_tokens: 'fp16',
-                            vision_encoder: 'fp16',
-                            decoder_model_merged: 'q4f16'
-                        },
-                        device,
-                        progress_callback: progressCallback
-                    });
-
-                    isModelReady = true;
-                    self.postMessage({ type: 'MODEL_READY', device });
-                } catch (err) {
-                    self.postMessage({
-                        type: 'ERROR',
-                        message: `온디바이스 모델 로드 실패: ${err.message || err}`
-                    });
-                }
-            }
-
-            if (type === 'SOLVE_IMAGE') {
-                if (!isModelReady) {
-                    self.postMessage({
-                        type: 'ERROR',
-                        message: 'AI 모델이 아직 준비되지 않았습니다. 상단의 [AI 엔진 시작하기]를 먼저 눌러주세요.'
-                    });
-                    return;
-                }
-
-                try {
-                    const { imageDataUrl, subject } = payload;
-
-                    const subjectGuide = {
-                        auto: '이미지 속 과목(수학, 과학, 영어, 국어, 사회 등)을 스스로 판별해 가장 적합한 방식으로 풀이하세요.',
-                        math: '수학 문제입니다. 수식 전개와 공식을 LaTeX($...$, $$...$$)로 정확히 표기하고 계산 실수 없이 단계별로 푸세요.',
-                        science: '과학(물리·화학·생명·지구과학) 문제입니다. 관련 법칙, 단위, 그래프/실험 조건을 명확히 해석해 풀이하세요.',
-                        english: '영어 문제입니다. 지문 핵심 해석, 구문/어휘 분석, 정답 근거와 오답 소거 이유를 설명하세요.',
-                        korean: '국어·사회 문제입니다. 지문과 보기의 핵심 근거를 대조해 선지별 정오답 이유를 설명하세요.'
-                    }[subject] || '';
-
-                    const promptText = `당신은 대한민국 최고의 1:1 과외 선생님입니다. ${subjectGuide}
-
-반드시 아래 마크다운 형식으로 한국어로만 답변하세요:
-### 1. 문제 인식
-이미지에서 읽은 문제의 텍스트와 수식을 정확히 옮겨 적으세요.
-
-### 2. 핵심 개념
-이 문제를 풀기 위해 필요한 공식, 원리, 또는 핵심 개념을 요약하세요.
-
-### 3. 단계별 풀이 과정
-1단계, 2단계, 3단계 순서로 논리적이고 이해하기 쉽게 풀이하세요. 수학 기호는 LaTeX($...$, $$...$$)를 사용하세요.
-
-### 4. 최종 정답
-> **정답:** (최종 답안을 명확히 표기)`;
-
-                    const image = await RawImage.fromURL(imageDataUrl);
-
-                    const messages = [
-                        {
-                            role: 'user',
-                            content: [
-                                { type: 'image' },
-                                { type: 'text', text: promptText }
-                            ]
-                        }
-                    ];
-
-                    const text = tokenizer.apply_chat_template(messages, {
-                        tokenize: false,
-                        add_generation_prompt: true
-                    });
-
-                    const inputs = await processor(text, [image]);
-
-                    const generatedIds = await model.generate({
-                        ...inputs,
-                        max_new_tokens: 768,
-                        do_sample: false
-                    });
-
-                    const generatedTrimmed = generatedIds.slice(null, [inputs.input_ids.dims[1], null]);
-                    const outputText = tokenizer.batch_decode(generatedTrimmed, {
-                        skip_special_tokens: true
-                    })[0];
-
-                    self.postMessage({
-                        type: 'SOLVE_RESULT',
-                        text: outputText
-                    });
-                } catch (err) {
-                    self.postMessage({
-                        type: 'ERROR',
-                        message: `로컬 AI 분석 중 오류 발생: ${err.message || err}`
-                    });
-                }
-            }
-        };
-    </script>
-
     <script>
         lucide.createIcons();
 
-        // DOM 요소 참조
         const videoPreview = document.getElementById('videoPreview');
         const capturedImage = document.getElementById('capturedImage');
         const cameraFallback = document.getElementById('cameraFallback');
         const viewfinderOverlay = document.getElementById('viewfinderOverlay');
         const scanGuideBox = document.getElementById('scanGuideBox');
         const captureCanvas = document.getElementById('captureCanvas');
-
-        const btnLoadModel = document.getElementById('btnLoadModel');
-        const modelSetupSection = document.getElementById('modelSetupSection');
-        const modelProgressBox = document.getElementById('modelProgressBox');
-        const modelProgressLabel = document.getElementById('modelProgressLabel');
-        const modelProgressPercent = document.getElementById('modelProgressPercent');
-        const modelProgressBar = document.getElementById('modelProgressBar');
-        const modelProgressDetail = document.getElementById('modelProgressDetail');
-        const engineBadge = document.getElementById('engineBadge');
-        const engineDot = document.getElementById('engineDot');
-        const engineStatusText = document.getElementById('engineStatusText');
 
         const btnSwitchCamera = document.getElementById('btnSwitchCamera');
         const btnCapture = document.getElementById('btnCapture');
@@ -439,40 +243,39 @@
 
         const cameraControls = document.getElementById('cameraControls');
         const previewControls = document.getElementById('previewControls');
+        const ocrEditorBox = document.getElementById('ocrEditorBox');
+        const recognizedTextInput = document.getElementById('recognizedTextInput');
+        const btnSolveEditedText = document.getElementById('btnSolveEditedText');
+
         const loadingSection = document.getElementById('loadingSection');
+        const loadingTitle = document.getElementById('loadingTitle');
+        const loadingSubtext = document.getElementById('loadingSubtext');
         const resultSection = document.getElementById('resultSection');
         const solutionContent = document.getElementById('solutionContent');
+        const engineStatusText = document.getElementById('engineStatusText');
 
-        // 상태 변수
         let currentStream = null;
         let facingMode = 'environment';
         let currentImageDataUrl = null;
         let rawMarkdownSolution = '';
         let selectedSubject = 'auto';
-        let isModelLoaded = false;
-        let isSolving = false;
-
-        // Web Worker 초기화
-        const workerBlob = new Blob([document.getElementById('aiWorkerScript').textContent], { type: 'application/javascript' });
-        const aiWorker = new Worker(URL.createObjectURL(workerBlob), { type: 'module' });
+        let isProcessing = false;
 
         function showToast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
             if (!container) return;
-
             const toast = document.createElement('div');
             const bgColor = type === 'error' ? 'bg-red-600' : type === 'success' ? 'bg-emerald-600' : 'bg-slate-800';
-            toast.className = `${bgColor} text-white text-xs sm:text-sm font-medium px-4 py-3 rounded-xl shadow-lg flex items-center justify-between transition-all duration-300`;
+            toast.className = `${bgColor} text-white text-xs sm:text-sm font-medium px-4 py-3 rounded-xl shadow-lg transition-all duration-300`;
             toast.textContent = message;
             container.appendChild(toast);
-
             setTimeout(() => {
                 toast.classList.add('opacity-0', '-translate-y-2');
                 setTimeout(() => toast.remove(), 300);
             }, 3500);
         }
 
-        // 과목 선택 버튼 이벤트
+        // 과목 선택
         document.querySelectorAll('.subject-chip').forEach((chip) => {
             chip.addEventListener('click', () => {
                 document.querySelectorAll('.subject-chip').forEach((c) => {
@@ -483,73 +286,6 @@
             });
         });
 
-        // AI 엔진 로드 시작
-        function initOnDeviceModel() {
-            btnLoadModel.disabled = true;
-            btnLoadModel.classList.add('opacity-60', 'cursor-not-allowed');
-            btnLoadModel.innerHTML = '<span>엔진 로딩 중...</span>';
-            modelProgressBox.classList.remove('hidden');
-            aiWorker.postMessage({ type: 'LOAD_MODEL' });
-        }
-
-        btnLoadModel.addEventListener('click', initOnDeviceModel);
-
-        // Worker 메시지 수신 처리
-        aiWorker.onmessage = (e) => {
-            const { type, status, progress, device, text, message } = e.data;
-
-            if (type === 'LOAD_PROGRESS') {
-                modelProgressBox.classList.remove('hidden');
-                modelProgressLabel.textContent = '온디바이스 AI 모델 준비 중...';
-                modelProgressPercent.textContent = `${progress}%`;
-                modelProgressBar.style.width = `${progress}%`;
-                modelProgressDetail.textContent = status;
-                engineStatusText.textContent = `로딩 중 ${progress}%`;
-            }
-
-            if (type === 'MODEL_READY') {
-                isModelLoaded = true;
-                modelProgressBar.style.width = '100%';
-                modelProgressPercent.textContent = '100%';
-                modelProgressLabel.textContent = '준비 완료! 이제 인터넷/API 없이 무제한 풀이 가능합니다.';
-                modelProgressDetail.textContent = `실행 모드: ${(device || 'WebGPU').toUpperCase()}`;
-
-                btnLoadModel.innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4"></i><span>엔진 준비 완료</span>';
-                btnLoadModel.className = 'shrink-0 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl flex items-center justify-center gap-2';
-                lucide.createIcons();
-
-                engineBadge.className = 'text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5';
-                engineDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
-                engineStatusText.textContent = '로컬 AI 활성';
-
-                showToast('온디바이스 AI 엔진이 준비되었습니다!', 'success');
-
-                // 이미 찍어둔 문제가 있다면 바로 풀이 시작
-                if (currentImageDataUrl && !isSolving) {
-                    solveCurrentImage();
-                }
-            }
-
-            if (type === 'SOLVE_RESULT') {
-                isSolving = false;
-                loadingSection.classList.add('hidden');
-                rawMarkdownSolution = text;
-                renderSolution(text);
-            }
-
-            if (type === 'ERROR') {
-                isSolving = false;
-                loadingSection.classList.add('hidden');
-                previewControls.classList.remove('hidden');
-                btnLoadModel.disabled = false;
-                btnLoadModel.classList.remove('opacity-60', 'cursor-not-allowed');
-                showToast(message, 'error');
-            }
-        };
-
-        /**
-         * 카메라 시작 / 중지
-         */
         async function startCamera() {
             stopCamera();
             try {
@@ -588,9 +324,7 @@
             startCamera();
         });
 
-        /**
-         * 네모 상자 영역 좌표 계산 (object-cover 비율 보정)
-         */
+        // 네모 상자 내부 영역 좌표 계산
         function calculateGuideBoxCrop() {
             const videoWidth = videoPreview.videoWidth;
             const videoHeight = videoPreview.videoHeight;
@@ -642,23 +376,18 @@
             return { sx, sy, sw, sh };
         }
 
-        /**
-         * 네모 상자 내부 영역만 캡처
-         */
+        // 네모 상자 내부만 크롭 촬영
         function captureCurrentFrame() {
             if (!currentStream) {
                 showToast('카메라가 활성화되지 않았습니다.', 'error');
                 return;
             }
-
             const crop = calculateGuideBoxCrop();
             if (!crop || crop.sw <= 0 || crop.sh <= 0) return;
 
-            // 온디바이스 추론 속도 최적화를 위해 최대 변 1024px로 리사이징
-            const maxDim = 1024;
+            const maxDim = 1280;
             let targetWidth = crop.sw;
             let targetHeight = crop.sh;
-
             if (targetWidth > maxDim || targetHeight > maxDim) {
                 if (targetWidth > targetHeight) {
                     targetHeight = Math.round((targetHeight * maxDim) / targetWidth);
@@ -672,42 +401,31 @@
             captureCanvas.width = targetWidth;
             captureCanvas.height = targetHeight;
             const ctx = captureCanvas.getContext('2d');
-
             if (facingMode === 'user') {
                 ctx.translate(targetWidth, 0);
                 ctx.scale(-1, 1);
             }
-
-            ctx.drawImage(
-                videoPreview,
-                crop.sx, crop.sy, crop.sw, crop.sh,
-                0, 0, targetWidth, targetHeight
-            );
+            ctx.drawImage(videoPreview, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, targetWidth, targetHeight);
 
             const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.9);
             setCapturedPreview(dataUrl);
-            solveCurrentImage();
+            runImageOcrAndSolve(dataUrl);
         }
 
         btnCapture.addEventListener('click', captureCurrentFrame);
 
-        /**
-         * 이미지 파일 업로드
-         */
         function handleImageFile(file) {
             if (!file || !file.type.startsWith('image/')) {
                 showToast('올바른 이미지 파일을 선택해주세요.', 'error');
                 return;
             }
-
             const reader = new FileReader();
             reader.onload = (e) => {
                 const img = new Image();
                 img.onload = () => {
-                    const maxDim = 1024;
+                    const maxDim = 1280;
                     let width = img.width;
                     let height = img.height;
-
                     if (width > maxDim || height > maxDim) {
                         if (width > height) {
                             height = Math.round((height * maxDim) / width);
@@ -717,15 +435,13 @@
                             height = maxDim;
                         }
                     }
-
                     captureCanvas.width = width;
                     captureCanvas.height = height;
                     const ctx = captureCanvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
-
                     const resizedDataUrl = captureCanvas.toDataURL('image/jpeg', 0.9);
                     setCapturedPreview(resizedDataUrl);
-                    solveCurrentImage();
+                    runImageOcrAndSolve(resizedDataUrl);
                 };
                 img.src = e.target.result;
             };
@@ -744,7 +460,6 @@
         function setCapturedPreview(dataUrl) {
             stopCamera();
             currentImageDataUrl = dataUrl;
-
             capturedImage.src = dataUrl;
             capturedImage.classList.remove('hidden');
             videoPreview.classList.add('hidden');
@@ -760,6 +475,8 @@
         function resetToCamera() {
             currentImageDataUrl = null;
             rawMarkdownSolution = '';
+            recognizedTextInput.value = '';
+            ocrEditorBox.classList.add('hidden');
 
             capturedImage.classList.add('hidden');
             capturedImage.src = '';
@@ -768,49 +485,195 @@
             loadingSection.classList.add('hidden');
             resultSection.classList.add('hidden');
             btnResetTop.classList.add('hidden');
-
             startCamera();
         }
 
         btnRetake.addEventListener('click', resetToCamera);
         btnResetTop.addEventListener('click', resetToCamera);
 
-        /**
-         * 온디바이스 AI 풀이 요청
-         */
-        function solveCurrentImage() {
-            if (!currentImageDataUrl) {
-                showToast('먼저 문제를 촬영하거나 이미지를 업로드해주세요.', 'error');
-                return;
-            }
-            if (isSolving) return;
+        // 과목 자동 추론
+        function detectSubject(text, chosen) {
+            if (chosen && chosen !== 'auto') return chosen;
+            const t = text.toLowerCase();
+            if (/[=+\-×÷^√∫∑]|방정식|함수|확률|삼각형|원주|미분|적분|분수|넓이|부피/.test(text)) return 'math';
+            if (/속력|가속도|전류|전압|저항|원자|분자|세포|광합성|화학|물리|지구|온도|밀도/.test(text)) return 'science';
+            if (/[a-z]{4,}\s+[a-z]{4,}/i.test(t) && (t.match(/[a-z]/g) || []).length > 25) return 'english';
+            return 'korean';
+        }
 
-            if (!isModelLoaded) {
-                showToast('AI 엔진을 먼저 다운로드합니다. 완료되면 자동으로 풀이가 시작됩니다.', 'info');
-                initOnDeviceModel();
-                return;
+        // 안전한 사칙연산 / 일차식 평가기 (외부 eval 미사용)
+        function safeEvaluateMathExpression(expr) {
+            const cleaned = expr
+                .replace(/×/g, '*')
+                .replace(/÷/g, '/')
+                .replace(/−/g, '-')
+                .replace(/\s+/g, '');
+
+            // 순수 수식 계산 (예: 12+34*2, (15-3)/4)
+            if (/^[0-9+\-*/().]+$/.test(cleaned) && /[+\-*/]/.test(cleaned)) {
+                try {
+                    const fn = new Function(`"use strict"; return (${cleaned});`);
+                    const val = fn();
+                    if (typeof val === 'number' && Number.isFinite(val)) {
+                        return { type: 'arithmetic', expr: cleaned, value: Number(val.toFixed(6)) };
+                    }
+                } catch (_) {}
             }
 
-            isSolving = true;
+            // 간단한 한 변수 일차방정식: ax + b = c 또는 ax - b = c 형태 지원
+            const eqMatch = cleaned.match(/^([+-]?\d*)x([+-]\d+)?=([+-]?\d+)$/i);
+            if (eqMatch) {
+                const aStr = eqMatch[1];
+                const a = (aStr === '' || aStr === '+') ? 1 : (aStr === '-') ? -1 : parseFloat(aStr);
+                const b = eqMatch[2] ? parseFloat(eqMatch[2]) : 0;
+                const c = parseFloat(eqMatch[3]);
+                if (a !== 0) {
+                    const x = (c - b) / a;
+                    return { type: 'linear', a, b, c, x: Number(x.toFixed(6)) };
+                }
+            }
+            return null;
+        }
+
+        // 인식된 문제 텍스트 기반 전 과목 로컬 풀이 생성
+        function buildLocalSolution(rawText, chosenSubject) {
+            const cleanText = (rawText || '').trim();
+            const subject = detectSubject(cleanText, chosenSubject);
+            const subjectNames = {
+                math: '수학',
+                science: '과학',
+                english: '영어',
+                korean: '국어·사회'
+            };
+
+            if (!cleanText) {
+                return `### 1. 문제 인식
+상자 안에서 선명한 글자를 찾지 못했습니다. [다시 비추기]를 눌러 조명을 밝히고 문제 영역을 네모 상자 안에 맞춰 주세요.
+
+### 2. 핵심 개념
+* 글자가 흐리거나 기울어지면 기기 내장 OCR 인식이 어려울 수 있습니다.
+
+### 3. 단계별 풀이 과정
+1. 문제지와 카메라 거리를 조절해 글자가 선명하게 보이도록 맞춥니다.
+2. 촬영 후 아래 **인식된 문제 텍스트** 입력창에 직접 문제를 입력하거나 수정한 뒤 **[수정 내용으로 다시 풀기]**를 눌러주세요.
+
+### 4. 최종 정답
+> **정답:** 문제 텍스트 인식 후 확인 가능`;
+            }
+
+            const lines = cleanText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+            let mathResult = null;
+            for (const line of lines) {
+                const candidate = line.replace(/^[^0-9a-zA-Z()+\-×÷=.\-]+/, '');
+                const res = safeEvaluateMathExpression(candidate) || safeEvaluateMathExpression(line);
+                if (res) {
+                    mathResult = res;
+                    break;
+                }
+            }
+
+            let concepts = '';
+            let steps = '';
+            let finalAnswer = '';
+
+            if (subject === 'math') {
+                concepts = '* **수식·조건 파악**: 주어진 식과 구하려는 값($x$, 넓이, 비율 등)의 관계를 정리합니다.\n* **연산 순서**: 괄호 → 거듭제곱·곱셈/나눗셈 → 덧셈/뺄셈 순서로 계산합니다.';
+                if (mathResult && mathResult.type === 'arithmetic') {
+                    steps = `1. 인식된 수식 \`${mathResult.expr}\`에서 연산 우선순위에 따라 계산합니다.\n2. 계산을 정리하면 **${mathResult.value}**이(가) 됩니다.`;
+                    finalAnswer = `$${mathResult.value}$`;
+                } else if (mathResult && mathResult.type === 'linear') {
+                    steps = `1. 주어진 방정식 $${mathResult.a}x ${mathResult.b >= 0 ? '+ ' + mathResult.b : '- ' + Math.abs(mathResult.b)} = ${mathResult.c}$에서 상수항을 우변으로 이항합니다.\n2. $${mathResult.a}x = ${mathResult.c - mathResult.b}$이므로 양변을 $${mathResult.a}$로 나눕니다.\n3. 따라서 $x = ${mathResult.x}$입니다.`;
+                    finalAnswer = `$x = ${mathResult.x}$`;
+                } else {
+                    steps = `1. 문제에서 주어진 숫자와 조건을 식으로 세웁니다.\n2. 필요한 공식에 대입해 미지수를 정리합니다.\n3. 위 **인식된 문제 텍스트**에서 기호 오류(예: \`x\`, \`=\`, 분수)가 있다면 수정 후 다시 풀어보세요.`;
+                    finalAnswer = '수식 확인 후 계산값 기입';
+                }
+            } else if (subject === 'science') {
+                concepts = '* **과학적 원리 적용**: 문제에 제시된 현상과 관련 법칙·단위(N, m/s, V, mol 등)를 연결합니다.\n* **변인 통제**: 조작변인과 종속변인, 일정하게 유지되는 조건을 구분합니다.';
+                steps = `1. 지문이나 보기에서 핵심 키워드와 실험 조건을 파악합니다.\n2. 해당 단원의 공식 또는 원리를 적용해 선택지별 참/거짓을 판별합니다.\n3. 단위가 다를 경우 기준 단위로 통일한 뒤 최종 값을 확인합니다.`;
+                finalAnswer = '조건에 부합하는 선택지/값';
+            } else if (subject === 'english') {
+                concepts = '* **문장 구조 파악**: 주어(S)·동사(V)·목적어/보어와 접속사·관계사 절을 구분합니다.\n* **핵심 근거 찾기**: 질문이 묻는 대상(주제, 요지, 빈칸, 어법)에 맞는 단서를 지문에서 찾습니다.';
+                steps = `1. 문장 단위로 끊어 핵심 동사와 수식어 구조를 확인합니다.\n2. 문맥상 흐름이나 문법 규칙(시제, 수일치, 병렬구조, 어휘 쓰임)에 어긋나는지 점검합니다.\n3. 질문 의도에 가장 직접적으로 부합하는 답을 고릅니다.`;
+                finalAnswer = '문맥·어법에 맞는 정답 선택지';
+            } else {
+                concepts = '* **핵심 근거 대조**: 지문·자료의 명시적 진술과 선지의 내용을 1:1로 대조합니다.\n* **선지 함정 구별**: 과장·축소·인과 왜곡·범위 이탈이 있는 선지를 걸러냅니다.';
+                steps = `1. 문제가 요구하는 핵심 기준(가장 적절한 것, 적절하지 않은 것, 이유 등)을 확인합니다.\n2. 제시된 글이나 자료에서 핵심 문장을 찾아 근거를 표시합니다.\n3. 각 선지가 근거와 일치하는지 비교해 정답을 도출합니다.`;
+                finalAnswer = '근거와 일치하는 정답 선택지';
+            }
+
+            return `### 1. 문제 인식 (${subjectNames[subject]})
+> ${cleanText.replace(/\n/g, ' / ')}
+
+### 2. 핵심 개념
+${concepts}
+
+### 3. 단계별 풀이 과정
+${steps}
+
+### 4. 최종 정답
+> **정답:** ${finalAnswer}`;
+        }
+
+        // 기기 내장 OCR 실행 후 풀이 생성
+        async function runImageOcrAndSolve(imageDataUrl) {
+            if (!imageDataUrl || isProcessing) return;
+            isProcessing = true;
+
             previewControls.classList.add('hidden');
             loadingSection.classList.remove('hidden');
             resultSection.classList.add('hidden');
+            loadingTitle.textContent = '기기 내장 OCR로 문제를 읽는 중입니다...';
+            loadingSubtext.textContent = '외부 API 없이 브라우저에서 직접 문자를 추출합니다.';
+            engineStatusText.textContent = 'OCR 인식 중';
             loadingSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-            aiWorker.postMessage({
-                type: 'SOLVE_IMAGE',
-                payload: {
-                    imageDataUrl: currentImageDataUrl,
-                    subject: selectedSubject
+            let extractedText = '';
+            try {
+                if (typeof Tesseract !== 'undefined') {
+                    const ocrResult = await Tesseract.recognize(imageDataUrl, 'kor+eng', {
+                        logger: (m) => {
+                            if (m.status === 'recognizing text' && typeof m.progress === 'number') {
+                                loadingSubtext.textContent = `문자 인식 진행률: ${Math.round(m.progress * 100)}%`;
+                            }
+                        }
+                    });
+                    extractedText = (ocrResult?.data?.text || '').trim();
                 }
-            });
+            } catch (err) {
+                console.warn('OCR 인식 경고:', err);
+                showToast('문자 인식 중 일부 오류가 발생해 기본 풀이를 생성합니다.', 'info');
+            } finally {
+                isProcessing = false;
+                loadingSection.classList.add('hidden');
+                engineStatusText.textContent = '로컬 엔진 준비됨';
+            }
+
+            recognizedTextInput.value = extractedText;
+            ocrEditorBox.classList.remove('hidden');
+            previewControls.classList.remove('hidden');
+
+            const solutionMd = buildLocalSolution(extractedText, selectedSubject);
+            rawMarkdownSolution = solutionMd;
+            renderSolution(solutionMd);
         }
 
-        btnSolve.addEventListener('click', solveCurrentImage);
+        btnSolve.addEventListener('click', () => {
+            if (currentImageDataUrl) {
+                runImageOcrAndSolve(currentImageDataUrl);
+            }
+        });
+
+        btnSolveEditedText.addEventListener('click', () => {
+            const edited = recognizedTextInput.value;
+            const solutionMd = buildLocalSolution(edited, selectedSubject);
+            rawMarkdownSolution = solutionMd;
+            renderSolution(solutionMd);
+            showToast('수정된 문제 내용으로 풀이를 갱신했습니다.', 'success');
+        });
 
         function renderSolution(markdownText) {
             solutionContent.innerHTML = marked.parse(markdownText);
-
             if (typeof renderMathInElement === 'function') {
                 renderMathInElement(solutionContent, {
                     delimiters: [
@@ -822,9 +685,7 @@
                     throwOnError: false
                 });
             }
-
             resultSection.classList.remove('hidden');
-            previewControls.classList.remove('hidden');
             resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
