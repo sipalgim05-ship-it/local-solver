@@ -99,21 +99,29 @@
         </div>
     </header>
 
-    <!-- API 키 입력 모달 -->
+    <!-- API 키 및 모델 설정 모달 -->
     <div id="apiKeyModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
             <div class="flex items-center justify-between mb-3">
                 <h3 class="font-bold text-lg text-slate-800 flex items-center gap-2">
                     <i data-lucide="key-round" class="w-5 h-5 text-blue-600"></i>
-                    <span>Gemini API 키 설정</span>
+                    <span>Gemini API 키 및 모델 설정</span>
                 </h3>
                 <button id="btnCloseApiKey" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
             <p class="text-xs text-slate-500 mb-4 leading-relaxed">
-                손글씨, 분수, 서술형 문제를 정확히 풀기 위해 Google AI Studio에서 발급받은 Gemini API 키를 입력해주세요. 입력한 키는 현재 브라우저에 자동 저장됩니다.
+                Google AI Studio에서 발급받은 Gemini API 키와 사용할 모델을 선택하세요. 설정은 브라우저에 자동 저장됩니다.
             </p>
+            <label for="modelSelect" class="block text-xs font-semibold text-slate-700 mb-1.5">AI 모델 선택</label>
+            <select id="modelSelect" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm mb-4 focus:outline-none focus:border-blue-500 bg-white">
+                <option value="gemini-3.8-flash">Gemini 3.8 Flash (gemini-3.8-flash)</option>
+                <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite (gemini-3.5-flash-lite)</option>
+                <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite (gemini-3.1-flash-lite)</option>
+                <option value="gemini-3-flash-preview">Gemini 3 Flash Preview (gemini-3-flash-preview)</option>
+            </select>
+            <label for="apiKeyInput" class="block text-xs font-semibold text-slate-700 mb-1.5">Gemini API 키</label>
             <input type="password" id="apiKeyInput" placeholder="AIzaSy..." class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm mb-4 focus:outline-none focus:border-blue-500 font-mono" />
             <div class="flex justify-end gap-2">
                 <button id="btnClearApiKey" class="px-3.5 py-2 text-xs font-medium text-slate-500 hover:bg-slate-100 rounded-xl transition">초기화</button>
@@ -122,7 +130,7 @@
         </div>
     </div>
 
-    <!-- 알림 메시지 박스 -->
+    <!-- 알림 메시지 박스 (alert() 대체) -->
     <div id="toastContainer" class="fixed top-16 left-1/2 transform -translate-x-1/2 z-50 w-11/12 max-w-md pointer-events-none flex flex-col gap-2"></div>
 
     <!-- 메인 컨테이너 -->
@@ -130,15 +138,15 @@
 
         <!-- 1. 카메라 및 이미지 캡처 영역 -->
         <section id="captureSection" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-            <!-- 뷰포트 컨테이너 -->
+            <!-- 뷰포트 컨테이너 (카메라 또는 캡처된 이미지 표시) -->
             <div class="relative w-full aspect-[4/3] sm:aspect-[16/10] bg-slate-900 flex items-center justify-center overflow-hidden">
-
+                
                 <!-- 실시간 비디오 스트림 -->
                 <video id="videoPreview" autoplay playsinline muted class="w-full h-full object-cover"></video>
-
+                
                 <!-- 캡처/업로드된 이미지 미리보기 -->
                 <img id="capturedImage" alt="촬영된 문제" class="hidden w-full h-full object-contain bg-slate-900" />
-
+                
                 <!-- 카메라 비활성화/오류 시 안내 화면 -->
                 <div id="cameraFallback" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-300 p-6 text-center bg-slate-800">
                     <i data-lucide="camera-off" class="w-12 h-12 mb-3 text-slate-400"></i>
@@ -150,18 +158,21 @@
                     </button>
                 </div>
 
-                <!-- 카메라 뷰파인더 가이드라인 -->
+                <!-- 카메라 뷰파인더 가이드라인 (카메라 활성 상태일 때만 표시) -->
                 <div id="viewfinderOverlay" class="absolute inset-0 pointer-events-none flex items-center justify-center">
                     <div id="scanGuideBox" class="w-4/5 h-3/5 border-2 border-white/70 rounded-2xl relative shadow-[0_0_0_9999px_rgba(15,23,42,0.45)]">
+                        <!-- 모서리 강조 -->
                         <div class="absolute -top-0.5 -left-0.5 w-6 h-6 border-t-4 border-l-4 border-blue-400 rounded-tl-xl"></div>
                         <div class="absolute -top-0.5 -right-0.5 w-6 h-6 border-t-4 border-r-4 border-blue-400 rounded-tr-xl"></div>
                         <div class="absolute -bottom-0.5 -left-0.5 w-6 h-6 border-b-4 border-l-4 border-blue-400 rounded-bl-xl"></div>
                         <div class="absolute -bottom-0.5 -right-0.5 w-6 h-6 border-b-4 border-r-4 border-blue-400 rounded-br-xl"></div>
+                        <!-- 스캔 애니메이션 라인 -->
                         <div class="scanner-line"></div>
                     </div>
                     <span class="absolute bottom-3 bg-black/70 text-white text-xs px-3 py-1 rounded-full backdrop-blur-sm">
                         네모 상자 안에 들어온 부분만 잘라서 촬영됩니다
                     </span>
+                    <!-- 실시간 자동 스캔 진행 바 -->
                     <div id="autoScanStatus" class="hidden absolute top-3 left-3 bg-black/70 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-md flex items-center gap-2 border border-white/10">
                         <span id="autoScanDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                         <span id="autoScanText">문제를 비추면 자동 인식됩니다</span>
@@ -178,17 +189,20 @@
             <div class="p-4 bg-white border-t border-slate-100">
                 <!-- 상태 A: 카메라 촬영 대기 모드 -->
                 <div id="cameraControls" class="flex items-center justify-between gap-2 sm:gap-3">
+                    <!-- 파일 업로드 버튼 -->
                     <label for="fileInput" class="flex items-center justify-center gap-1.5 px-3.5 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium text-sm cursor-pointer transition active:scale-98">
                         <i data-lucide="image-plus" class="w-5 h-5 text-slate-500"></i>
                         <span class="hidden sm:inline">앨범/파일</span>
                     </label>
                     <input type="file" id="fileInput" accept="image/*" class="hidden">
 
+                    <!-- 자동 스캔 모드 토글 버튼 -->
                     <button id="btnToggleAutoScan" class="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold text-sm transition active:scale-95">
                         <i data-lucide="scan" class="w-4 h-4"></i>
                         <span id="autoScanBtnLabel">자동 스캔 ON</span>
                     </button>
 
+                    <!-- 수동 즉시 촬영 버튼 -->
                     <button id="btnCapture" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 transition active:scale-95">
                         <i data-lucide="camera" class="w-5 h-5"></i>
                         <span>즉시 촬영</span>
@@ -236,20 +250,15 @@
                 </button>
             </div>
 
+            <!-- 마크다운 및 수식 렌더링 컨테이너 -->
             <div id="solutionContent" class="p-5 sm:p-6 markdown-body text-slate-700 text-sm sm:text-base"></div>
         </section>
 
     </main>
 
     <script>
-        // 사용할 Gemini 모델 ID (필요 시 'gemini-3.8-flash' 등으로 교체 가능)
-        const GEMINI_MODEL = 'gemini-3.5-flash-lite';
-        const API_KEY_STORAGE_KEY = 'gemini_smart_scanner_api_key';
-        const AUTO_SOLVE_COOLDOWN_MS = 6000;
-
         lucide.createIcons();
 
-        // DOM 요소 참조
         const videoPreview = document.getElementById('videoPreview');
         const capturedImage = document.getElementById('capturedImage');
         const cameraFallback = document.getElementById('cameraFallback');
@@ -277,21 +286,23 @@
         const resultSection = document.getElementById('resultSection');
         const solutionContent = document.getElementById('solutionContent');
 
-        // API 키 모달 DOM 요소
         const btnOpenApiKey = document.getElementById('btnOpenApiKey');
         const apiKeyModal = document.getElementById('apiKeyModal');
         const btnCloseApiKey = document.getElementById('btnCloseApiKey');
+        const modelSelect = document.getElementById('modelSelect');
         const apiKeyInput = document.getElementById('apiKeyInput');
         const btnSaveApiKey = document.getElementById('btnSaveApiKey');
         const btnClearApiKey = document.getElementById('btnClearApiKey');
         const apiKeyStatusText = document.getElementById('apiKeyStatusText');
 
-        // 로컬 스토리지 헬퍼
+        const API_KEY_STORAGE_KEY = 'gemini_smart_scanner_api_key';
+        const MODEL_STORAGE_KEY = 'gemini_smart_scanner_model';
+        const DEFAULT_MODEL = 'gemini-3.8-flash';
+
         function loadSavedApiKey() {
             try {
                 return localStorage.getItem(API_KEY_STORAGE_KEY) || '';
             } catch (e) {
-                console.warn('로컬 스토리지 접근 제한됨:', e);
                 return '';
             }
         }
@@ -303,29 +314,52 @@
                 } else {
                     localStorage.removeItem(API_KEY_STORAGE_KEY);
                 }
+            } catch (e) {}
+        }
+
+        function loadSavedModel() {
+            try {
+                return localStorage.getItem(MODEL_STORAGE_KEY) || DEFAULT_MODEL;
             } catch (e) {
-                console.warn('로컬 스토리지 저장 실패:', e);
+                return DEFAULT_MODEL;
             }
         }
 
-        // 상태 변수
+        function persistModel(model) {
+            try {
+                localStorage.setItem(MODEL_STORAGE_KEY, model || DEFAULT_MODEL);
+            } catch (e) {}
+        }
+
         let currentStream = null;
         let facingMode = 'environment';
         let currentImageBase64 = null;
         let currentImageMimeType = 'image/jpeg';
         let rawMarkdownSolution = '';
         let userApiKey = loadSavedApiKey();
+        let selectedModel = loadSavedModel();
         let isSolving = false;
         let lastSolvedAt = 0;
+        const AUTO_SOLVE_COOLDOWN_MS = 6000;
 
-        // 자동 스캔 상태 변수
-        let isAutoScanEnabled = true;
+        let isAutoScanEnabled = false; // 429 방지를 위해 기본 OFF 권장(버튼으로 ON 가능)
         let autoScanTimer = null;
         let steadyCount = 0;
         const STEADY_THRESHOLD = 4;
         let previousFrameData = null;
         const motionCanvas = document.createElement('canvas');
         const motionCtx = motionCanvas.getContext('2d', { willReadFrequently: true });
+
+        function syncAutoScanButtonUI() {
+            if (isAutoScanEnabled) {
+                btnToggleAutoScan.className = 'flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold text-sm transition active:scale-95';
+                autoScanBtnLabel.textContent = '자동 스캔 ON';
+            } else {
+                btnToggleAutoScan.className = 'flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 font-semibold text-sm transition active:scale-95';
+                autoScanBtnLabel.textContent = '자동 스캔 OFF';
+            }
+        }
+        syncAutoScanButtonUI();
 
         function showToast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
@@ -342,19 +376,16 @@
             setTimeout(() => {
                 toast.classList.add('opacity-0', '-translate-y-2');
                 setTimeout(() => toast.remove(), 300);
-            }, 3500);
+            }, 4500);
         }
 
         btnToggleAutoScan.addEventListener('click', () => {
             isAutoScanEnabled = !isAutoScanEnabled;
+            syncAutoScanButtonUI();
             if (isAutoScanEnabled) {
-                btnToggleAutoScan.className = 'flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold text-sm transition active:scale-95';
-                autoScanBtnLabel.textContent = '자동 스캔 ON';
                 if (currentStream) startAutoScanLoop();
                 showToast('자동 스캔이 켜졌습니다. 문제를 비추고 잠시 고정하세요.');
             } else {
-                btnToggleAutoScan.className = 'flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 font-semibold text-sm transition active:scale-95';
-                autoScanBtnLabel.textContent = '자동 스캔 OFF';
                 stopAutoScanLoop();
                 showToast('자동 스캔이 꺼졌습니다. 즉시 촬영 버튼을 사용하세요.');
             }
@@ -362,7 +393,7 @@
 
         function updateApiKeyBadge() {
             if (userApiKey) {
-                apiKeyStatusText.textContent = 'API 키 저장됨';
+                apiKeyStatusText.textContent = `API 키 저장됨 (${selectedModel})`;
                 btnOpenApiKey.className = 'text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1';
             } else {
                 apiKeyStatusText.textContent = 'API 키 입력';
@@ -373,16 +404,19 @@
 
         function saveUserApiKey(closeModal = true) {
             userApiKey = apiKeyInput.value.trim();
+            selectedModel = modelSelect.value || DEFAULT_MODEL;
             persistApiKey(userApiKey);
+            persistModel(selectedModel);
             updateApiKeyBadge();
             if (closeModal) {
                 apiKeyModal.classList.add('hidden');
             }
-            showToast(userApiKey ? 'API 키가 브라우저에 자동 저장되었습니다!' : 'API 키가 비워졌습니다.', userApiKey ? 'success' : 'info');
+            showToast(`모델(${selectedModel})과 API 키가 저장되었습니다!`, 'success');
         }
 
         btnOpenApiKey.addEventListener('click', () => {
             apiKeyInput.value = userApiKey;
+            modelSelect.value = selectedModel;
             apiKeyModal.classList.remove('hidden');
             apiKeyInput.focus();
         });
@@ -588,7 +622,7 @@
             const crop = calculateGuideBoxCrop();
             if (!crop || crop.sw <= 0 || crop.sh <= 0) return;
 
-            const maxDim = 1600;
+            const maxDim = 1280;
             let targetWidth = crop.sw;
             let targetHeight = crop.sh;
 
@@ -617,7 +651,7 @@
                 0, 0, targetWidth, targetHeight
             );
 
-            const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.9);
+            const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.85);
             setCapturedPreview(dataUrl, 'image/jpeg');
 
             const now = Date.now();
@@ -640,7 +674,7 @@
             reader.onload = (e) => {
                 const img = new Image();
                 img.onload = () => {
-                    const maxDim = 1600;
+                    const maxDim = 1280;
                     let width = img.width;
                     let height = img.height;
 
@@ -715,27 +749,22 @@
         btnRetake.addEventListener('click', resetToCamera);
         btnResetTop.addEventListener('click', resetToCamera);
 
-        async function fetchWithRetry(url, options, maxRetries = 1) {
-            let delay = 1200;
-            for (let attempt = 0; attempt <= maxRetries; attempt++) {
-                try {
-                    const response = await fetch(url, options);
-                    if (response.ok) {
-                        return await response.json();
-                    }
-                    const errData = await response.json().catch(() => ({}));
-                    const message = errData.error?.message || `요청 오류 (${response.status})`;
-                    if (response.status === 429 || response.status >= 500) {
-                        if (attempt === maxRetries) throw new Error(`${response.status}: ${message}`);
-                    } else {
-                        throw new Error(`${response.status}: ${message}`);
-                    }
-                } catch (err) {
-                    if (attempt === maxRetries) throw err;
-                }
-                await new Promise(resolve => setTimeout(resolve, delay));
-                delay *= 2;
+        /**
+         * Gemini API 호출 함수:
+         * 429(할당량 초과)는 재시도해도 금방 풀리지 않으므로 즉시 실제 오류 메시지를 노출합니다.
+         */
+        async function callGeminiApi(url, options) {
+            const response = await fetch(url, options);
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                const detailMsg = data.error?.message || `HTTP ${response.status}`;
+                const err = new Error(detailMsg);
+                err.status = response.status;
+                throw err;
             }
+
+            return data;
         }
 
         async function solveCurrentImage() {
@@ -761,7 +790,7 @@
 
 반드시 다음 형식(Markdown)에 맞춰 한국어로 답변해 주세요:
 ### 1. 문제 인식
-이미지에서 읽은 문제의 텍스트와 수식을 정확히 옮겨 적어주세요. (만약 이미지가 흐리거나 문제가 보이지 않으면 정중히 다시 비춰달라고 안내해 주세요.)
+이미지에서 읽은 문제의 텍스트와 수식을 정확히 옮겨 적어주세요.
 
 ### 2. 핵심 개념
 이 문제를 풀기 위해 알아야 할 공식, 원리, 또는 문법/개념을 간단히 요약해 주세요.
@@ -776,7 +805,8 @@
             const userQuery = "이 이미지에 있는 문제를 분석하고 단계별 풀이 과정과 최종 정답을 알려주세요.";
 
             const apiKey = userApiKey || loadSavedApiKey();
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+            const modelToUse = selectedModel || loadSavedModel();
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${apiKey}`;
 
             const payload = {
                 contents: [
@@ -799,11 +829,11 @@
             };
 
             try {
-                const result = await fetchWithRetry(apiUrl, {
+                const result = await callGeminiApi(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
-                }, 1);
+                });
 
                 const generatedText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
 
@@ -816,13 +846,13 @@
 
             } catch (error) {
                 console.error("AI 풀이 요청 실패:", error);
-                if (error.message && error.message.includes('429')) {
-                    showToast('요청 한도(429)를 초과했습니다. 잠시 후 다시 시도하거나 Google AI Studio 할당량을 확인해주세요.', 'error');
+                if (error.status === 429 || (error.message && error.message.toLowerCase().includes('quota'))) {
+                    showToast(`429 할당량 초과 (${modelToUse}): ${error.message}`, 'error');
                 } else if (error.message && (error.message.includes('Permission denied') || error.message.includes('API key') || error.message.includes('API_KEY_INVALID'))) {
-                    showToast('상단의 [API 키 입력] 버튼을 눌러 Gemini API 키를 등록해 주세요!', 'error');
+                    showToast('상단의 [API 키] 버튼을 눌러 Gemini API 키를 확인해 주세요!', 'error');
                     apiKeyModal.classList.remove('hidden');
                 } else {
-                    showToast(`풀이 실패: ${error.message}`, 'error');
+                    showToast(`오류 (${modelToUse}): ${error.message}`, 'error');
                 }
                 previewControls.classList.remove('hidden');
             } finally {
